@@ -1,8 +1,6 @@
-import path from "path";
-
 interface IFileSystem {
-  fileRead: (path: string) => Promise<string>;
-  fileWrite: (path: string, content: string) => Promise<void>;
+  fileRead: (path: string) => string | Promise<string>;
+  fileWrite: (path: string, content: string) => void;
 }
 
 export type { IFileSystem };
