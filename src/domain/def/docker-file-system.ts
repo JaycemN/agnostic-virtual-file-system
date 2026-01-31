@@ -33,6 +33,16 @@ class DockerFS implements IFileSystem {
       console.error("Error writing file to Docker container:", error);
     }
   };
+  changePermission = async (path: string, mode: number) => {
+    try {
+      const { stderr } = await execPromise(
+        `docker exec ${this.containerId} chmod ${mode} ${path}`,
+      );
+      if (stderr) throw new Error(stderr);
+    } catch (error) {
+      console.error("Error changing the permission:", error);
+    }
+  };
 }
 
 export { DockerFS };

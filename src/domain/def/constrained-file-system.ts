@@ -32,6 +32,13 @@ class ConstrainedFS implements IFileSystem {
       console.error("Couldn't write file:", error);
     }
   };
+  changePermission = async (path: string, mode: number) => {
+    try {
+      await fs.chmod(`${this.directoryPath}/${path}`, mode);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 }
 
 export { ConstrainedFS };
