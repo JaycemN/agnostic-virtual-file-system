@@ -1,42 +1,49 @@
-import { constants } from "fs";
+import { VirtualSystem } from "./virtual-system.js";
+import { PermissionsEnum } from "../meta/enums/permissions.js";
 import type { IFileSystem } from "../meta/i-file-system.js";
 
-class MemoryFS implements IFileSystem {
+class MemoryFS extends VirtualSystem implements IFileSystem {
   private storage: Map<string, string>;
-  private permission: Map<string, number>;
+  private users: Map<string, PermissionsEnum[]>;
+  private groups: Map<string, { users: string[], permissions: PermissionsEnum[] }>;
 
   constructor() {
+    super();
     this.storage = new Map<string, string>();
-    this.permission = new Map<string, number>();
+    this.users = new Map<string, PermissionsEnum[]>();
+    this.groups = new Map<string, { users: string[], permissions: PermissionsEnum[] }>();
   }
   fileRead = (path: string) => {
-    try {
-      if ((this.permission.get(path)! & constants.R_OK) == constants.R_OK) {
-        const file = this.storage.get(path);
-        if (!file) throw new Error("File does not exist");
-        return file;
-      } else {
-        throw new Error("No read permission for this file");
+    if (!this.getActiveUser()) throw new Error("No active user found, set an active user in order to use the system");
+    if (this.users.get(this.getActiveUser())!.includes(PermissionsEnum.Read)) {
+      if (this.storage.get(path)) {
+        return this.storage.get(path)!;
       }
-    } catch (error) {
-      console.error("Error reading file:", error);
-      return error as string;
     }
-  };
+    throw new Error("File does not exist");
+  }
 
-  fileWrite = (path: string, content: string) => {
-    if (this.storage.get(path)) {
-      if ((this.permission.get(path)! & constants.W_OK) == constants.W_OK)
-        this.storage.set(path, content);
-    } else {
+  fileWrite = (path: string, content: string): void => {
+    if (!this.getActiveUser()) throw new Error("No active user found, set an active user in order to use the system");
+    if (this.users.get(this.getActiveUser())!.includes(PermissionsEnum.Write)) {
       this.storage.set(path, content);
-      this.permission.set(path, 0o06);
+      return;
     }
+    throw new Error("No write permission");
   };
 
-  changePermission = (path: string, mode: number) => {
-    this.permission.set(path, mode);
-  };
+  addUser = (username: string, permissions: PermissionsEnum[]) => {
+    this.users.set(username, permissions);
+  }
+  removeUser = (username: string) => {
+    this.users.delete(username);
+  }
+  addGroup = (groupName: string, permissions: PermissionsEnum[], users: string[]) => {
+    this.groups.set(groupName, { users, permissions });
+  }
+  removeGroup = (groupName: string) => {
+    this.groups.delete(groupName);
+  }
 }
 
 export { MemoryFS };

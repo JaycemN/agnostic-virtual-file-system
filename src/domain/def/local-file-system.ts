@@ -1,10 +1,20 @@
 import fs from "node:fs/promises";
 import type { IFileSystem } from "../meta/i-file-system.js";
+import { VirtualSystem } from "./virtual-system.js";
+import { PermissionsEnum } from "../meta/enums/permissions.js";
+import { getActiveUser, getUsers } from "../../utils/data.js";
+class LocalFS extends VirtualSystem implements IFileSystem {
 
-class LocalFS implements IFileSystem {
+  constructor() {
+    super();
+  }
   fileRead = async (path: string) => {
     try {
-      return await fs.readFile(path, "utf8");
+      if (!getActiveUser()) throw new Error("No active user found, set an active user in order to use the system");
+      if (getUsers()[getActiveUser()].includes(PermissionsEnum.Read)) {
+        return await fs.readFile(path, "utf8");
+      }
+      throw new Error("No read permission");
     } catch (error) {
       console.error(error);
       return "Could not read file";
@@ -12,14 +22,12 @@ class LocalFS implements IFileSystem {
   };
   fileWrite = async (path: string, content: string) => {
     try {
-      await fs.writeFile(path, content, "utf8");
-    } catch (error) {
-      console.error(error);
-    }
-  };
-  changePermission = async (path: string, mode: number) => {
-    try {
-      await fs.chmod(path, mode);
+      if (!getActiveUser()) throw new Error("No active user found, set an active user in order to use the system");
+      if (getUsers()[getActiveUser()].includes(PermissionsEnum.Write)) {
+        await fs.writeFile(path, content, "utf8");
+        return;
+      }
+      throw new Error("No write permission");
     } catch (error) {
       console.error(error);
     }

@@ -3,6 +3,8 @@ import util from "util";
 const execPromise = util.promisify(exec);
 
 import type { IFileSystem } from "../meta/i-file-system.js";
+import { getActiveUser, getUsers } from "../../utils/data.js";
+import { PermissionsEnum } from "../meta/enums/permissions.js";
 
 class DockerFS implements IFileSystem {
   private containerId: string;
@@ -12,11 +14,15 @@ class DockerFS implements IFileSystem {
 
   fileRead = async (path: string) => {
     try {
-      const { stdout, stderr } = await execPromise(
-        "docker exec " + this.containerId + " cat " + path,
-      );
-      if (stderr) throw new Error(stderr);
-      return stdout;
+      if (!getActiveUser()) throw new Error("No active user found, set an active user in order to use the system");
+      if (getUsers()[getActiveUser()].includes(PermissionsEnum.Read)) {
+        const { stdout, stderr } = await execPromise(
+          "docker exec " + this.containerId + " cat " + path,
+        );
+        if (stderr) throw new Error(stderr);
+        return stdout;
+      }
+      throw new Error("No read permission");
     } catch (error) {
       console.error("Error reading file from Docker container:", error);
       return "Could not read file";
@@ -24,25 +30,20 @@ class DockerFS implements IFileSystem {
   };
   fileWrite = async (path: string, content: string) => {
     try {
-      const { stderr } = await execPromise(
-        `docker exec ${this.containerId} sh -c 'echo "${content}" >> ${path}'`,
-      );
+      if (!getActiveUser()) throw new Error("No active user found, set an active user in order to use the system");
+      if (getUsers()[getActiveUser()].includes(PermissionsEnum.Write)) {
+        const { stderr } = await execPromise(
+          `docker exec ${this.containerId} sh -c 'echo "${content}" >> ${path}'`,
+        );
 
-      if (stderr) throw new Error(stderr);
+        if (stderr) throw new Error(stderr);
+      }
+      throw new Error("No write permission");
     } catch (error) {
       console.error("Error writing file to Docker container:", error);
     }
   };
-  changePermission = async (path: string, mode: number) => {
-    try {
-      const { stderr } = await execPromise(
-        `docker exec ${this.containerId} chmod ${mode} ${path}`,
-      );
-      if (stderr) throw new Error(stderr);
-    } catch (error) {
-      console.error("Error changing the permission:", error);
-    }
-  };
+
 }
 
 export { DockerFS };
